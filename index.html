@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎨 Vẽ & Đăng Tranh</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f4f4; text-align: center; padding: 20px; }
+    canvas { border: 2px solid #333; background: #fff; cursor: crosshair; max-width: 100%; height: auto; touch-action: none; }
+    #controls { margin: 15px 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+    input[type=color], input[type=range], input[type=text], input[type=password], button { margin: 5px; font-size: 16px; padding: 6px; }
+    #gallery img { margin: 10px; border: 1px solid #ccc; width: 100%; max-width: 200px; }
+    #auth { margin-bottom: 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+    #welcome { display: block; margin-top: 10px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>🎨 Vẽ & Đăng Tranh</h1>
+  <div id="auth">
+    <input type="text" id="username" placeholder="Tên đăng nhập">
+    <input type="password" id="password" placeholder="Mật khẩu">
+    <button onclick="register()">📝 Đăng ký</button>
+    <button onclick="login()">🔐 Đăng nhập</button>
+    <span id="welcome"></span>
+  </div>
+
+  <div id="controls">
+    <label>Màu: <input type="color" id="colorPicker" value="#000000"></label>
+    <label>Nét vẽ: <input type="range" id="sizePicker" min="1" max="20" value="4"></label>
+    <button onclick="clearCanvas()">🧽 Xoá</button>
+    <button onclick="postDrawing()">📤 Đăng Tranh</button>
+    <button onclick="downloadDrawing()">💾 Tải về</button>
+  </div>
+
+  <canvas id="draw" width="600" height="400"></canvas>
+  <h2>🖼️ Bộ Sưu Tập</h2>
+  <div id="gallery"></div>
+
+  <script>
+    const canvas = document.getElementById('draw');
+    const ctx = canvas.getContext('2d');
+    const colorPicker = document.getElementById('colorPicker');
+    const sizePicker = document.getElementById('sizePicker');
+    const username = document.getElementById('username');
+    const password = document.getElementById('password');
+    const welcome = document.getElementById('welcome');
+
+    let drawing = false;
+    let lastX = 0, lastY = 0;
+
+    function getMousePos(e) {
+      const rect = canvas.getBoundingClientRect();
+      if (e.touches) {
+        return [e.touches[0].clientX - rect.left, e.touches[0].clientY - rect.top];
+      }
+      return [e.clientX - rect.left, e.clientY - rect.top];
+    }
+
+    function drawSmooth(e) {
+      if (!drawing) return;
+      e.preventDefault();
+      const [x, y] = getMousePos(e);
+      ctx.strokeStyle = colorPicker.value;
+      ctx.lineWidth = sizePicker.value;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      [lastX, lastY] = [x, y];
+    }
+
+    function startDraw(e) {
+      drawing = true;
+      [lastX, lastY] = getMousePos(e);
+    }
+
+    function stopDraw() {
+      drawing = false;
+    }
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mouseup', stopDraw);
+    canvas.addEventListener('mouseout', stopDraw);
+    canvas.addEventListener('mousemove', drawSmooth);
+
+    canvas.addEventListener('touchstart', startDraw);
+    canvas.addEventListener('touchend', stopDraw);
+    canvas.addEventListener('touchcancel', stopDraw);
+    canvas.addEventListener('touchmove', drawSmooth);
+
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function postDrawing() {
+      const user = localStorage.getItem("loggedUser") || "Ẩn danh";
+      const drawings = JSON.parse(localStorage.getItem("drawings") || "[]");
+      drawings.unshift({ user, img: canvas.toDataURL("image/png") });
+      localStorage.setItem("drawings", JSON.stringify(drawings));
+      showGallery();
+      clearCanvas();
+    }
+
+    function showGallery() {
+      const gallery = document.getElementById('gallery');
+      gallery.innerHTML = '';
+      const drawings = JSON.parse(localStorage.getItem("drawings") || "[]");
+      for (const { user, img } of drawings) {
+        const div = document.createElement("div");
+        const label = document.createElement("div");
+        label.textContent = "👤 " + user;
+        const image = document.createElement("img");
+        image.src = img;
+        div.appendChild(label);
+        div.appendChild(image);
+        gallery.appendChild(div);
+      }
+    }
+
+    function downloadDrawing() {
+      const link = document.createElement('a');
+      link.download = 'tranh-cua-toi.png';
+      link.href = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
+      link.click();
+    }
+
+    function register() {
+      const user = username.value, pass = password.value;
+      if (!user || !pass) return alert("Nhập đủ thông tin!");
+      if (localStorage.getItem("user_" + user))
+        return alert("Tài khoản đã tồn tại!");
+      localStorage.setItem("user_" + user, pass);
+      alert("Đăng ký thành công!");
+    }
+
+    function login() {
+      const user = username.value, pass = password.value;
+      const saved = localStorage.getItem("user_" + user);
+      if (saved === pass) {
+        localStorage.setItem("loggedUser", user);
+        welcome.innerText = "👋 Xin chào " + user;
+        username.style.display = password.style.display = "none";
+        showGallery();
+      } else {
+        alert("Sai tài khoản hoặc mật khẩu");
+      }
+    }
+
+    window.onload = () => {
+      const user = localStorage.getItem("loggedUser");
+      if (user) {
+        welcome.innerText = "👋 Xin chào " + user;
+        showGallery();
+      }
+    }
+  </script>
+</body>
+</html>
